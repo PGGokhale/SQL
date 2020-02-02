@@ -195,84 +195,117 @@ FROM
     customer
 WHERE
     store_id IN 
-    (SELECT store_id FROM store
+    (SELECT store_id 
+     FROM store
 	 WHERE address_id IN 
-     (SELECT address_id FROM address
-	  WHERE city_id IN 
-      (SELECT city_id FROM city
-	   WHERE country_id = 
-       (SELECT country_id FROM country
-		WHERE country = 'CANADA'))))
+		   (SELECT address_id 
+            FROM address
+			WHERE city_id IN 
+				 (SELECT city_id 
+                  FROM city
+				  WHERE country_id = 
+						(SELECT country_id 
+                        FROM country
+						WHERE country = 'CANADA'))))
 ORDER BY first_name , last_name;
 
 -- 7d. Sales have been lagging among young families, and you wish to target all family movies for a promotion. 
 -- Identify all movies categorized as _family_ films.
-SELECT f.title FROM film f
+SELECT f.title 
+FROM film f
 WHERE film_id IN 
-(SELECT film_id FROM film_category
- WHERE category_id IN 
- (SELECT category_id FROM category
-  WHERE name = 'family'));
+	  (SELECT film_id 
+       FROM film_category
+	   WHERE category_id IN 
+			 (SELECT category_id 
+              FROM category
+			  WHERE name = 'family'));
 
 -- * 7e. Display the most frequently rented movies in descending order.
-
-SELECT f2.title, COUNT(r.rental_id) AS 'Number of times rented' FROM rental r
-JOIN (SELECT i.inventory_id, f.film_id, f.title FROM inventory i
-JOIN film f WHERE f.film_id = i.film_id) f2
+SELECT f2.title, COUNT(r.rental_id) AS 'Number of times rented' 
+FROM rental r
+JOIN (SELECT i.inventory_id, f.film_id, f.title 
+	  FROM inventory i
+      JOIN film f 
+      WHERE f.film_id = i.film_id) f2
 WHERE r.inventory_id = f2.inventory_id
 GROUP BY f2.title
 ORDER BY COUNT(r.rental_id) DESC;
 
 -- * 7f. Write a query to display how much business, in dollars, each store brought in.
-SELECT level2.store_id AS 'store', SUM(p.amount) AS 'Business in $'  FROM payment p
-JOIN(SELECT r.rental_id, level1.store_id FROM rental r
-JOIN (SELECT i.inventory_id, i.store_id FROM inventory i
-JOIN store s WHERE i.store_id = s.store_id) level1
-WHERE level1.inventory_id = r.inventory_id) level2
+SELECT level2.store_id AS 'store', SUM(p.amount) AS 'Business in $'  
+FROM payment p
+JOIN (SELECT r.rental_id, level1.store_id 
+	  FROM rental r
+	  JOIN (SELECT i.inventory_id, i.store_id 
+			FROM inventory i
+			JOIN store s 
+            WHERE i.store_id = s.store_id) level1
+	  WHERE level1.inventory_id = r.inventory_id) level2
 WHERE level2.rental_id = p.rental_id
 GROUP BY level2.store_id;
 
+
 -- * 7g. Write a query to display for each store its store ID, city, and country.
-SELECT level2.store_id, level2.city, co.country FROM country co
-JOIN(SELECT c.city, c.country_id, level1.store_id FROM city c
-JOIN (SELECT a.city_id, s.store_id FROM address a
-JOIN store s WHERE a.address_id = s.address_id) level1
-WHERE level1.city_id = c.city_id) level2
+SELECT level2.store_id, level2.city, co.country 
+FROM country co
+JOIN(SELECT c.city, c.country_id, level1.store_id 
+	 FROM city c
+	 JOIN(SELECT a.city_id, s.store_id 
+		  FROM address a
+		  JOIN store s 
+          WHERE a.address_id = s.address_id) level1
+	 WHERE level1.city_id = c.city_id) level2
 WHERE co.country_id = level2.country_id
 GROUP BY level2.store_id;
 
 -- * 7h. List the top five genres in gross revenue in descending order.
-SELECT name, Gross_Revenue FROM 
-(SELECT c.name, SUM(level4.amount) AS 'Gross_Revenue' FROM category c
-JOIN (SELECT level3.category_id, p.amount FROM payment p
-JOIN (SELECT r.rental_id, level2.category_id FROM rental r
-JOIN (SELECT i.inventory_id, level1.category_id FROM inventory i
-JOIN (SELECT f.film_id, fc.category_id FROM film f
-JOIN film_category fc WHERE fc.film_id = f.film_id) level1
-WHERE i.film_id = level1.film_id) level2
-WHERE level2.inventory_id = r.inventory_id) level3
-WHERE level3.rental_id = p.rental_id) level4
-WHERE level4.category_id = c. category_id
-GROUP BY c.name) AS new_table
+-- NOTE: There are five enteries in payment table (corresponding to payment_id 424, 7011, 10840, 14675, 15458)
+-- where the rental_id is NULL. Because rental_id is the only way to track the genres these 5 enteries need to be ignored.
+
+
+SELECT name, Gross_revenue 
+FROM (SELECT table4.name, SUM(table4.amount) AS 'Gross_Revenue' 
+	 FROM (SELECT c.name, table3.amount, table3.payment_id, table3.inventory_id, table3.film_id, table3.category_id 
+	      FROM (SELECT table2.amount, table2.payment_id, table2.inventory_id, table2.film_id, fc.category_id 
+				FROM (SELECT table1.amount, table1.payment_id, table1.inventory_id, i.film_id  
+					FROM (SELECT p.amount, p.payment_id, r.inventory_id 
+						FROM payment p
+						LEFT JOIN rental r
+                        ON p.rental_id = r.rental_id) table1
+					LEFT JOIN inventory i
+					ON  table1.inventory_id =i.inventory_id) table2
+				LEFT JOIN film_category fc 
+                ON table2.film_id = fc.film_id) table3
+		LEFT JOIN category c 
+        ON table3.category_id = c.category_id) table4
+GROUP BY table4.name) AS new_table
 ORDER BY Gross_Revenue DESC 
 LIMIT 5;
+
 
 -- * 8a. In your new role as an executive, you would like to have an easy way of viewing the Top five genres by gross revenue. Use the solution from the problem above to create a view. If you haven't solved 7h, you can substitute another query to create a view.
 
-CREATE VIEW top_genres AS SELECT name, Gross_Revenue FROM 
-(SELECT c.name, SUM(level4.amount) AS 'Gross_Revenue' FROM category c
-JOIN (SELECT level3.category_id, p.amount FROM payment p
-JOIN (SELECT r.rental_id, level2.category_id FROM rental r
-JOIN (SELECT i.inventory_id, level1.category_id FROM inventory i
-JOIN (SELECT f.film_id, fc.category_id FROM film f
-JOIN film_category fc WHERE fc.film_id = f.film_id) level1
-WHERE i.film_id = level1.film_id) level2
-WHERE level2.inventory_id = r.inventory_id) level3
-WHERE level3.rental_id = p.rental_id) level4
-WHERE level4.category_id = c. category_id
-GROUP BY c.name) AS new_table
+
+CREATE VIEW top_genres AS SELECT name, Gross_Revenue 
+FROM (SELECT table4.name, SUM(table4.amount) AS 'Gross_Revenue' 
+	 FROM (SELECT c.name, table3.amount, table3.payment_id, table3.inventory_id, table3.film_id, table3.category_id 
+	      FROM (SELECT table2.amount, table2.payment_id, table2.inventory_id, table2.film_id, fc.category_id 
+				FROM (SELECT table1.amount, table1.payment_id, table1.inventory_id, i.film_id  
+					FROM (SELECT p.amount, p.payment_id, r.inventory_id 
+						FROM payment p
+						LEFT JOIN rental r
+                        ON p.rental_id = r.rental_id) table1
+					LEFT JOIN inventory i
+					ON  table1.inventory_id =i.inventory_id) table2
+				LEFT JOIN film_category fc 
+                ON table2.film_id = fc.film_id) table3
+		LEFT JOIN category c 
+        ON table3.category_id = c.category_id) table4
+GROUP BY table4.name) AS new_table
 ORDER BY Gross_Revenue DESC 
 LIMIT 5;
+
 
 -- * 8b. How would you display the view that you created in 8a?
 SELECT * FROM top_genres;

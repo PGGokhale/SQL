@@ -3,3 +3,5 @@ This repository is created to submit the SQL Homework for Data Analysis and Visu
 It contains various queries applied on a sample database provided by MySQL named Sakila.
 
 All queries noted in the instructions for the homework are tied to this Sakila database.
+
+The requirements for the queries is provided in Instructions.md file.
